@@ -1,348 +1,124 @@
-# 🧬 Clinical Trial LLM Assistant
+# Clinical Trial LLM Assistant
 
-> An intelligent R Shiny chatbot for exploring clinical trial data using plain English.  
-> Ask natural language questions → get SQL-powered results as interactive charts, maps, and tables.
+A Shiny app that lets you query clinical trial data in plain English. Type a question, and the app generates SQL, runs it against the database, and returns the results as a chart, map, or table.
 
----
+Built on top of [AACT data from ClinicalTrials.gov](https://aact.ctti-clinicaltrials.org/).
+## Sample screenshot of AI powered RShiny Chatbot
+<img width="1911" height="1136" alt="image" src="https://github.com/user-attachments/assets/4bb138d7-8c51-4eb1-9dfb-4a13402e01ac" />
 
-## 📋 Table of Contents
-
-- [Overview](#overview)
-- [Features](#features)
-- [App Screenshots](#app-screenshots)
-- [Tech Stack](#tech-stack)
-- [Data](#data)
-- [Prerequisites](#prerequisites)
-- [Installation](#installation)
-- [Configuration](#configuration)
-- [Running the App](#running-the-app)
-- [Usage Examples](#usage-examples)
-- [App Architecture](#app-architecture)
-- [Project Structure](#project-structure)
-- [API Keys](#api-keys)
-- [Troubleshooting](#troubleshooting)
-- [License](#license)
+## Sample screenshot
+<img width="1911" height="914" alt="image" src="https://github.com/user-attachments/assets/d9462b75-e00c-459d-8e5b-2b9a7df47409" />
 
 ---
 
-## Overview
+## What it does
 
-The **Clinical Trial LLM Assistant** is a conversational data exploration tool built with R Shiny. It connects to a clinical trials database (sourced from [AACT / ClinicalTrials.gov](https://aact.ctti-clinicaltrials.org/)) and allows users to ask questions in plain English.
+You type something like *"top 10 sponsors by enrollment"* or *"map Novartis sites in Europe"* and the app:
 
-Under the hood, a Large Language Model (LLM) — either **Groq (LLaMA-3.3-70B)** or **OpenAI (GPT-4o-mini)** — translates each question into a SQL query, executes it against an in-memory SQLite database, and returns the results with automated visualizations and key insights.
+1. Sends your question to an LLM (Groq or OpenAI) to generate a SQL query
+2. Runs that query against an in-memory SQLite database
+3. Displays the results — bar chart, histogram, or leaflet map depending on the data
+4. Shows the SQL it used so you can verify or tweak it
 
----
-
-## Features
-
-| Feature | Description |
-|---------|-------------|
-| 💬 **Natural Language Chat** | Ask questions in plain English — no SQL knowledge needed |
-| 🤖 **Dual LLM Support** | Switch between Groq (LLaMA-3.3-70B) and OpenAI (GPT-4o-mini) from the sidebar |
-| 🗺️ **Interactive Maps** | Geographic visualizations of trial sites with marker clustering using Leaflet |
-| 📊 **Auto Visualizations** | Bar charts and histograms auto-generated based on query results via Plotly |
-| 📋 **Data Tables** | Paginated, searchable result tables with column sorting |
-| 🔍 **Data Explorer** | Browse raw sponsors and facilities tables directly |
-| ⬇️ **CSV Export** | Download any query result as a CSV file |
-| ⌨️ **Keyboard Shortcut** | Press Enter to submit queries (no mouse needed) |
-| 🔄 **SQL Transparency** | View the exact SQL query generated for every question |
-
----
-
-## App Screenshots
-
-> _Add screenshots here after deployment_
-
-| Chat Interface | Map View | Data Explorer |
-|----------------|----------|---------------|
-| _(screenshot)_ | _(screenshot)_ | _(screenshot)_ |
-
----
-
-## Tech Stack
-
-| Layer | Technology |
-|-------|-----------|
-| **UI Framework** | R Shiny + shinydashboard |
-| **LLM — Primary** | [Groq](https://groq.com/) — LLaMA-3.3-70B (free tier available) |
-| **LLM — Alternate** | [OpenAI](https://openai.com/) — GPT-4o-mini |
-| **Database** | SQLite in-memory via RSQLite + DBI |
-| **Charts** | Plotly (interactive bar charts, histograms) |
-| **Maps** | Leaflet (marker clustering, OpenStreetMap tiles) |
-| **Embeddings** | HuggingFace Inference API — `sentence-transformers/all-MiniLM-L6-v2` |
-| **HTTP Requests** | httr |
-| **Data Wrangling** | dplyr, readr, stringr |
-| **Spatial** | sf |
+You can switch between Groq (LLaMA-3.3-70B) and OpenAI (GPT-4o-mini) from the sidebar. The app defaults to Groq.
 
 ---
 
 ## Data
 
-The app loads two pipe-delimited (`|`) CSV files from the AACT database into an in-memory SQLite database at startup.
+Two pipe-delimited CSV files loaded at startup:
 
-### Tables
+- **`aact_multiple_sponsors.csv`** — trial metadata: sponsor, phase, status, enrollment, conditions, outcomes, dates
+- **`aact_facilities.csv`** — site locations: name, city, state, country, lat/lon
 
-#### `aact_multiple_sponsors` — Clinical Trial Metadata
-Key columns include:
-
-| Column | Description |
-|--------|-------------|
-| `nct_id` | Unique ClinicalTrials.gov identifier (e.g. NCT01234567) |
-| `sponsor_name` | Name of the sponsoring organization |
-| `study_phase` | Trial phase (Phase 1, Phase 2, Phase 3, etc.) |
-| `study_status` | Current status (Recruiting, Completed, etc.) |
-| `enrollment` | Number of participants |
-| `disease_condition` | Medical condition(s) being studied |
-| `start_date` / `primary_completion_date` | Study timeline dates |
-| `study_type` | Interventional or Observational |
-| `is_fda_regulated_drug` / `is_fda_regulated_device` | Regulatory flags |
-| `were_results_reported` | Whether results were submitted |
-
-#### `facilities` — Trial Site Locations
-Key columns include:
-
-| Column | Description |
-|--------|-------------|
-| `nct_id` | Links to the sponsors table |
-| `site_name` | Name of the facility/institution |
-| `site_status` | Recruiting, Active, Suspended, etc. |
-| `city`, `state`, `country` | Geographic location |
-| `latitude`, `longitude` | Coordinates (used for map visualizations) |
-
-Both tables are joined via the `nct_id` column.
-
-### Data Source
-
-Download data from the [AACT database](https://aact.ctti-clinicaltrials.org/snapshots).  
-Place the files in a folder and update `FILE_PATH` in `app.R`.
+Both tables join on `nct_id`. Download them from the [AACT snapshot page](https://aact.ctti-clinicaltrials.org/snapshots).
 
 ---
 
-## Prerequisites
+## Setup
 
-- **R** ≥ 4.1.0
-- **RStudio** (recommended)
-- At least one LLM API key:
-  - [Groq API key](https://console.groq.com/) — free tier available, fast inference
-  - [OpenAI API key](https://platform.openai.com/) — requires billing
-- _(Optional)_ [HuggingFace API key](https://huggingface.co/settings/tokens) — for embeddings
-
----
-
-## Installation
-
-### 1. Clone the repository
-
-```bash
-git clone https://github.com/your-username/RShinyChatBot.git
-cd RShinyChatBot
-```
-
-### 2. Install required R packages
-
-Open R or RStudio and run:
+**Install packages**
 
 ```r
 install.packages(c(
-  "shiny",
-  "shinydashboard",
-  "shinychat",
-  "DT",
-  "plotly",
-  "dplyr",
-  "DBI",
-  "RSQLite",
-  "httr",
-  "jsonlite",
-  "text2vec",
-  "stringr",
-  "readr",
-  "leaflet",
-  "sf",
-  "shinyjs"
+  "shiny", "shinydashboard", "shinychat", "DT", "plotly",
+  "dplyr", "DBI", "RSQLite", "httr", "jsonlite", "text2vec",
+  "stringr", "readr", "leaflet", "sf", "shinyjs"
 ))
 ```
 
----
+**Set API keys**
 
-## Configuration
+Open `~/.Renviron` (`usethis::edit_r_environ()`) and add:
 
-### 1. Set API keys
+```
+GROQ_API_KEY=gsk_...
+OPENAI_API_KEY=sk-...        # optional
+HUGGINGFACE_API_KEY=hf_...   # optional, for embeddings
+```
 
-Open your `.Renviron` file:
+Restart R after saving. At minimum you need one of `GROQ_API_KEY` or `OPENAI_API_KEY`.
+
+Get a free Groq key at [console.groq.com](https://console.groq.com/).
+
+**Set the data path**
+
+Update `FILE_PATH` in `app.R` to point to the folder with your CSV files:
 
 ```r
-usethis::edit_r_environ()
+FILE_PATH <- "path/to/your/data/"
 ```
 
-Add your keys:
-
-```
-GROQ_API_KEY=gsk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-HUGGINGFACE_API_KEY=hf_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-```
-
-Save and restart R (`Ctrl+Shift+F10` in RStudio).
-
-> **Minimum requirement:** At least `GROQ_API_KEY` **or** `OPENAI_API_KEY` must be set.  
-> The app defaults to Groq if `GROQ_API_KEY` is present.
-
-### 2. Set the data file path
-
-In `app.R`, update `FILE_PATH` to point to the folder containing your CSV files:
-
-```r
-FILE_PATH <- "path/to/your/knowledge-base/"
-```
-
-### 3. (Optional) Change the LLM model
-
-```r
-# Groq model options
-GROQ_MODEL <- "llama-3.3-70b-versatile"   # default (recommended)
-# GROQ_MODEL <- "llama-3.1-8b-instant"    # faster, lighter
-# GROQ_MODEL <- "mixtral-8x7b-32768"      # longer context window
-
-# OpenAI model
-LLM_MODEL <- "gpt-4o-mini"
-```
-
----
-
-## Running the App
+**Run**
 
 ```r
 shiny::runApp("path/to/RShinyChatBot")
 ```
 
-Or open `app.R` in RStudio and click **Run App**.
-
-The app will:
-1. Load both CSV files into an in-memory SQLite database
-2. Start the Shiny server
-3. Open in your browser at `http://127.0.0.1:<port>`
-
 ---
 
-## Usage Examples
+## Example questions
 
-Type any of these into the chat box:
-
-**Enrollment & Sponsors**
-- *"Who are the top 10 sponsors by total enrollment?"*
-- *"Show me the average enrollment by study phase"*
-- *"How many studies does Pfizer have?"*
-
-**Study Status & Phase**
 - *"What is the distribution of studies by phase?"*
-- *"How many studies are currently recruiting?"*
-- *"Show completed vs ongoing trials by year"*
-
-**Geographic**
-- *"Map all Novartis trial sites"*
-- *"Which countries have the most trial facilities?"*
-- *"Show recruiting sites in the United States"*
-
-**Disease & Conditions**
-- *"How many oncology trials are in Phase 3?"*
-- *"List studies for diabetes with more than 1000 participants"*
-
-**Dates & Timelines**
-- *"How many trials started in 2022?"*
-- *"What is the average time to report results?"*
+- *"Top 10 sponsors by total enrollment"*
+- *"How many trials are currently recruiting?"*
+- *"Map all Pfizer trial sites"*
+- *"Average enrollment for Phase 3 oncology trials"*
+- *"How many studies started in 2022?"*
+- *"Which countries have the most facilities?"*
 
 ---
 
-## App Architecture
+## Changing the model
 
+The Groq model is set near the top of `app.R`:
+
+```r
+GROQ_MODEL <- "llama-3.3-70b-versatile"   # default
+# GROQ_MODEL <- "llama-3.1-8b-instant"    # faster
+# GROQ_MODEL <- "mixtral-8x7b-32768"      # longer context
 ```
-User Question
-      │
-      ▼
- LLM (Groq / OpenAI)
- SQL Generation Prompt
-      │
-      ▼
-  SQL Query
- (extracted + cleaned)
-      │
-      ▼
- SQLite (in-memory)
- aact_multiple_sponsors
-     + facilities
-      │
-      ▼
-  Query Results
-      │
-      ├──► Plotly Chart (bar / histogram)
-      ├──► Leaflet Map (if lat/lon present)
-      ├──► DT Data Table
-      └──► Chat Response + SQL display
-```
-
----
-
-## Project Structure
-
-```
-RShinyChatBot/
-├── app.R          # Full application — UI, server, LLM calls, SQL, visualizations
-└── README.md      # This file
-```
-
-All logic lives in a single `app.R` file, organized into clearly labeled sections:
-
-| Section | Purpose |
-|---------|---------|
-| Configuration & Setup | Constants, API keys, model selection |
-| Database Setup | Load CSVs → SQLite |
-| LLM API Functions | `call_groq_api()`, `call_openai_api()`, `call_llm_api()` dispatcher |
-| Vector DB & Embeddings | HuggingFace embedding calls |
-| Database Schema Info | Schema context injected into LLM prompts |
-| SQL Generation | Prompt engineering → SQL extraction |
-| Query Execution | Run SQL against SQLite |
-| Visualization | Auto-select chart type or map |
-| Insight Generation | LLM-generated data summaries |
-| Main Processing | `process_user_query()` orchestrator |
-| Shiny UI | Dashboard layout |
-| Shiny Server | Reactive logic, event handlers |
-
----
-
-## API Keys
-
-| Key | Where to get it | Required |
-|-----|----------------|----------|
-| `GROQ_API_KEY` | [console.groq.com](https://console.groq.com/) | ✅ Recommended (free) |
-| `OPENAI_API_KEY` | [platform.openai.com](https://platform.openai.com/) | ⚡ Optional |
-| `HUGGINGFACE_API_KEY` | [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens) | ⚡ Optional (embeddings) |
 
 ---
 
 ## Troubleshooting
 
-**App fails to start — "Please set at least one API key"**  
-→ Check your `.Renviron` file has `GROQ_API_KEY` or `OPENAI_API_KEY` set, and restart R.
+**App won't start** — make sure at least one API key is set in `.Renviron` and you've restarted R.
 
-**"SQL Error" in the chat**  
-→ The LLM may have misunderstood the question. Try rephrasing with more specific column names (e.g. "study phase" instead of just "phase").
+**SQL error in chat** — try rephrasing the question more specifically. Mentioning column names (e.g. "study phase" vs "phase") usually helps.
 
-**Map shows no markers**  
-→ The query results may have missing lat/lon values. Try asking about a specific country or sponsor to narrow the data.
+**Map shows nothing** — the query result may not have lat/lon values. Try filtering to a specific sponsor or country first.
 
-**Slow responses**  
-→ Switch to `llama-3.1-8b-instant` in `GROQ_MODEL` for faster (but less capable) responses.
+**Slow responses** — switch to `llama-3.1-8b-instant` for faster turnaround at the cost of some quality.
 
-**Data not loading**  
-→ Verify `FILE_PATH` points to the correct folder and both CSV files exist with the expected names (`aact_multiple_sponsors.csv` and `aact_facilities.csv`).
+---
+
+## Stack
+
+R Shiny, shinydashboard, Groq / OpenAI, SQLite, Plotly, Leaflet, httr, dplyr
 
 ---
 
 ## License
 
-MIT License — feel free to use, modify, and distribute with attribution.
-
----
-
-_Built with R Shiny · Powered by Groq LLaMA & OpenAI · Data from ClinicalTrials.gov (AACT)_
+MIT
